@@ -63,12 +63,38 @@
         
         <div class="grid-tarjetas">
           <div v-for="tramite in tramitesEnCurso" :key="tramite.id" class="grid-item">
-            <TarjetaTramite 
-              :tramite="tramite.tramites_catalogo"
-              :progreso="tramite"
-              :publico="false"
-              @iniciar="handleIniciarTramite"
-            />
+            <div class="tarjeta-dashboard">
+              <div class="tarjeta-header">
+                <h3 class="tarjeta-titulo">{{ tramite.tramites_catalogo.nombre }}</h3>
+                <p class="tarjeta-institucion">{{ tramite.tramites_catalogo.institucion }}</p>
+              </div>
+              
+              <p class="tarjeta-descripcion">{{ tramite.tramites_catalogo.descripcion }}</p>
+              
+              <!-- Barra de progreso -->
+              <div class="progreso-container">
+                <div class="progreso-header">
+                  <span class="progreso-label">Progreso</span>
+                  <span class="progreso-porcentaje">{{ calcularPorcentaje(tramite) }}%</span>
+                </div>
+                <div class="progreso-barra">
+                  <div class="progreso-barra-llena" :style="{ width: calcularPorcentaje(tramite) + '%' }"></div>
+                </div>
+                <p class="progreso-detalle">
+                  {{ tramite.pasos_completados?.length || 0 }} de {{ totalPasos(tramite) }} requisitos completados
+                </p>
+              </div>
+              
+              <div class="tarjeta-footer">
+                <span class="estado-badge estado-curso">En curso</span>
+                <button 
+                  @click="handleIniciarTramite(tramite.tramites_catalogo.id)" 
+                  class="btn-continuar"
+                >
+                  Continuar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -85,12 +111,38 @@
         
         <div class="grid-tarjetas">
           <div v-for="tramite in tramitesFinalizados" :key="tramite.id" class="grid-item">
-            <TarjetaTramite 
-              :tramite="tramite.tramites_catalogo"
-              :progreso="tramite"
-              :publico="false"
-              @iniciar="handleIniciarTramite"
-            />
+            <div class="tarjeta-dashboard">
+              <div class="tarjeta-header">
+                <h3 class="tarjeta-titulo">{{ tramite.tramites_catalogo.nombre }}</h3>
+                <p class="tarjeta-institucion">{{ tramite.tramites_catalogo.institucion }}</p>
+              </div>
+              
+              <p class="tarjeta-descripcion">{{ tramite.tramites_catalogo.descripcion }}</p>
+              
+              <!-- Barra de progreso completada -->
+              <div class="progreso-container">
+                <div class="progreso-header">
+                  <span class="progreso-label">Progreso</span>
+                  <span class="progreso-porcentaje">100%</span>
+                </div>
+                <div class="progreso-barra">
+                  <div class="progreso-barra-llena completa" style="width: 100%"></div>
+                </div>
+                <p class="progreso-detalle">
+                  {{ tramite.pasos_completados?.length || 0 }} de {{ totalPasos(tramite) }} requisitos completados
+                </p>
+              </div>
+              
+              <div class="tarjeta-footer">
+                <span class="estado-badge estado-finalizado">Finalizado</span>
+                <button 
+                  @click="handleIniciarTramite(tramite.tramites_catalogo.id)" 
+                  class="btn-ver"
+                >
+                  Ver detalles
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -117,13 +169,10 @@ import { useTramiteStore } from '../stores/tramiteStore'
 import Navbar from '../components/layout/Navbar.vue'
 import Footer from '../components/layout/Footer.vue'
 import Buscador from '../components/tramites/Buscador.vue'
-import TarjetaTramite from '../components/tramites/TarjetaTramite.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const tramiteStore = useTramiteStore()
-
-const tramites = ref([])
 
 const tramitesEnCurso = computed(() => 
   tramiteStore.miProgreso.filter(p => p.estado === 'en_curso')
@@ -133,14 +182,22 @@ const tramitesFinalizados = computed(() =>
   tramiteStore.miProgreso.filter(p => p.estado === 'finalizado')
 )
 
+// Calcular total de pasos de un trámite
+const totalPasos = (tramite) => {
+  const instrucciones = tramite.tramites_catalogo?.json_instrucciones
+  return instrucciones?.pasos?.reduce((total, paso) => total + paso.checklist.length, 0) || 0
+}
+
+// Calcular porcentaje de progreso
+const calcularPorcentaje = (tramite) => {
+  const total = totalPasos(tramite)
+  if (total === 0) return 0
+  const completados = tramite.pasos_completados?.length || 0
+  return Math.round((completados / total) * 100)
+}
+
 const handleIniciarTramite = (tramiteId) => {
-  if (!authStore.user) {
-    // Guardar el ID del trámite en sessionStorage para recuperarlo después del login
-    sessionStorage.setItem('tramitePendiente', tramiteId)
-    router.push('/login')
-  } else {
-    router.push(`/tramite/${tramiteId}`)
-  }
+  router.push(`/tramite/${tramiteId}`)
 }
 
 const irALogin = () => {
@@ -149,17 +206,9 @@ const irALogin = () => {
 
 onMounted(async () => {
   await tramiteStore.cargarCatalogo()
-  tramites.value = tramiteStore.tramitesCatalogo
   
   if (authStore.user) {
     await tramiteStore.cargarMiProgreso(authStore.user.id)
-    
-    // Verificar si hay un trámite pendiente después del login
-    const tramitePendiente = sessionStorage.getItem('tramitePendiente')
-    if (tramitePendiente) {
-      sessionStorage.removeItem('tramitePendiente')
-      router.push(`/tramite/${tramitePendiente}`)
-    }
   }
 })
 </script>
@@ -175,7 +224,6 @@ onMounted(async () => {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
-/* Banner de invitación para usuario no logueado */
 .banner-invitacion {
   background: linear-gradient(135deg, #6b7280, #4b5563);
   border-radius: 1.5rem;
@@ -330,12 +378,150 @@ onMounted(async () => {
 /* Grid de tarjetas */
 .grid-tarjetas {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
 }
 
 .grid-item {
   height: 100%;
+}
+
+/* Tarjeta Dashboard */
+.tarjeta-dashboard {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.tarjeta-dashboard:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.tarjeta-header {
+  margin-bottom: 0.5rem;
+}
+
+.tarjeta-titulo {
+  font-weight: bold;
+  font-size: 1rem;
+  color: #1f2937;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tarjeta-institucion {
+  font-size: 0.7rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+.tarjeta-descripcion {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin: 0.5rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+/* Barra de progreso */
+.progreso-container {
+  margin: 0.75rem 0;
+}
+
+.progreso-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.progreso-label {
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+
+.progreso-porcentaje {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #0ea5e9;
+}
+
+.progreso-barra {
+  width: 100%;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progreso-barra-llena {
+  height: 100%;
+  background: linear-gradient(90deg, #0ea5e9, #0284c7);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progreso-barra-llena.completa {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.progreso-detalle {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  margin-top: 0.25rem;
+}
+
+/* Footer de tarjeta */
+.tarjeta-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.estado-badge {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+}
+
+.estado-curso {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.estado-finalizado {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.btn-continuar, .btn-ver {
+  background-color: #0ea5e9;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-continuar:hover, .btn-ver:hover {
+  background-color: #0284c7;
 }
 
 /* Card vacío */
