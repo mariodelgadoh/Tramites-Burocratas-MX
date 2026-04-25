@@ -102,7 +102,7 @@
 
       <!-- Footer -->
       <p class="text-center text-secondary-500 text-sm mt-8">
-        © 2024 Burocracia MX. Todos los derechos reservados.
+        © 2026 Burocracia MX. Todos los derechos reservados.
       </p>
     </div>
   </div>
